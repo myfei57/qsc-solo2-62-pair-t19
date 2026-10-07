@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from dataclasses import dataclass
 
 
@@ -49,6 +51,6 @@ def validate_zone(zone: int) -> None:
     """Reject zone numbers outside the supported range."""
 
     if zone < 0:
-        raise ValueError("zone must be non-negative")
+        raise FieldMalformed("zone must be non-negative")
     if zone > 100_000:
-        raise ValueError("zone exceeds the supported range")
+        raise FieldMalformed("zone exceeds the supported range")

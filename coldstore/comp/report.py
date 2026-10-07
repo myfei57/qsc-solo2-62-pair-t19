@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from dataclasses import dataclass
 
 
@@ -49,6 +51,6 @@ def validate_stage(stage: int, stages: int = 8) -> None:
     """Reject stages outside the supported range."""
 
     if stage < 0:
-        raise ValueError("stage must be non-negative")
+        raise FieldMalformed("stage must be non-negative")
     if stage > stages:
-        raise ValueError("stage exceeds the supported range")
+        raise FieldMalformed("stage exceeds the supported range")

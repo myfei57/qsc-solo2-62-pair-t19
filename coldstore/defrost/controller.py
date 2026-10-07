@@ -7,6 +7,7 @@ interrupted console can replay or discard pending work.
 
 from __future__ import annotations
 
+from coldstore.errors import ResourceNotFound
 from coldstore.fan import FanSet
 from coldstore.room import RoomRegistry
 from coldstore.store.commands import append_command, clear_commands, load_commands
@@ -75,7 +76,7 @@ class Controller:
 
         mapping = self._rooms.mapping()
         if zone not in mapping:
-            raise ValueError(f"no cold room for zone {zone}")
+            raise ResourceNotFound(f"no cold room for zone {zone}")
         return mapping[zone]
 
     def defrosting(self) -> list[str]:

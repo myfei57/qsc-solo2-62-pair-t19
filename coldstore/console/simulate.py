@@ -64,10 +64,6 @@ def run_simulation(rt: Runtime, request: Request) -> Response:
     """Run a bounded number of ticks so the console can be exercised offline."""
 
     ticks = request.int_field("ticks", DEFAULT_TICKS)
-    if ticks <= 0:
-        ticks = DEFAULT_TICKS
-    if ticks > MAX_TICKS:
-        ticks = MAX_TICKS
 
     base_at = int(time.time())
     steps: list[Tick] = []

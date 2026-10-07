@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from dataclasses import dataclass
 
 
@@ -49,6 +51,6 @@ def validate_temp(value: float) -> None:
     """Reject readings outside the supported probe range."""
 
     if value < -100:
-        raise ValueError("temp is below the supported range")
+        raise FieldMalformed("temp is below the supported range")
     if value > 100:
-        raise ValueError("temp exceeds the supported range")
+        raise FieldMalformed("temp exceeds the supported range")

@@ -7,6 +7,8 @@ before the compressors are staged.
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from coldstore.room import RoomRegistry
 from coldstore.store.epoch import load_float, save_float
 from coldstore.store.store import Store
@@ -47,7 +49,7 @@ class LoadCalculator:
 
     def set_coefficient(self, value: float) -> float:
         if value <= 0:
-            raise ValueError("coefficient must be positive")
+            raise FieldMalformed("coefficient must be positive")
         save_float(self._store, COEFFICIENT_KEY, value)
         return value
 

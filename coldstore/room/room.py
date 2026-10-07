@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import threading
 
+from coldstore.errors import ResourceConflict, ResourceNotFound
+
 from .report import RoomState, RoomView
 
 
@@ -49,6 +51,8 @@ class RoomRegistry:
 
     def add_room(self, room_id: str, zone: int, temp: float = 0.0) -> Room:
         with self._lock:
+            if room_id in self._rooms:
+                raise ResourceConflict(f"cold room {room_id} already exists")
             room = Room(room_id=room_id, zone=zone, temp=temp)
             self._rooms[room_id] = room
             return room
@@ -71,7 +75,7 @@ class RoomRegistry:
     def remove_room(self, room_id: str) -> None:
         with self._lock:
             if room_id not in self._rooms:
-                raise ValueError(f"cold room {room_id} not found")
+                raise ResourceNotFound(f"cold room {room_id} not found")
             del self._rooms[room_id]
 
     def set_temp(self, room_id: str, temp: float) -> None:
@@ -116,7 +120,11 @@ class RoomRegistry:
 
     def renumber(self, room_id: str, zone: int) -> None:
         with self._lock:
-            self._require(room_id).zone = zone
+            room = self._require(room_id)
+            holder = self.mapping().get(zone)
+            if holder is not None and holder != room_id:
+                raise ResourceConflict(f"zone {zone} already assigned to {holder}")
+            room.zone = zone
 
     def mapping(self) -> dict[int, str]:
         """Zone to room identifier, rebuilt from the live registry."""
@@ -185,5 +193,5 @@ class RoomRegistry:
     def _require(self, room_id: str) -> Room:
         room = self._rooms.get(room_id)
         if room is None:
-            raise ValueError(f"cold room {room_id} not found")
+            raise ResourceNotFound(f"cold room {room_id} not found")
         return room

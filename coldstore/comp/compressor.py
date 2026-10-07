@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import threading
 
+from coldstore.errors import IllegalState, ResourceConflict, ResourceNotFound
+
 from .report import BankState, CompressorView
 
 
@@ -41,6 +43,8 @@ class Bank:
 
     def add_compressor(self, comp_id: str, stages: int) -> Compressor:
         with self._lock:
+            if comp_id in self._compressors:
+                raise ResourceConflict(f"compressor {comp_id} already exists")
             compressor = Compressor(comp_id=comp_id, stages=stages)
             self._compressors[comp_id] = compressor
             return compressor
@@ -63,7 +67,7 @@ class Bank:
     def remove(self, comp_id: str) -> None:
         with self._lock:
             if comp_id not in self._compressors:
-                raise ValueError(f"compressor {comp_id} not found")
+                raise ResourceNotFound(f"compressor {comp_id} not found")
             del self._compressors[comp_id]
             self._reservations.pop(comp_id, None)
 
@@ -87,7 +91,7 @@ class Bank:
         with self._lock:
             compressor = self._require(comp_id)
             if stage < 0 or stage > compressor.stages:
-                raise ValueError(f"stage must be between 0 and {compressor.stages}")
+                raise IllegalState(f"stage must be between 0 and {compressor.stages}")
             compressor.stage = stage
             compressor.running = stage > 0
             return stage
@@ -143,7 +147,7 @@ class Bank:
             self._require(comp_id)
             holder = self._reservations.get(comp_id)
             if holder is not None and holder != room_id:
-                raise ValueError(f"compressor {comp_id} already reserved by {holder}")
+                raise ResourceConflict(f"compressor {comp_id} already reserved by {holder}")
             self._reservations[comp_id] = room_id
             return room_id
 
@@ -153,7 +157,7 @@ class Bank:
             if holder is None:
                 return
             if holder != room_id:
-                raise ValueError(f"compressor {comp_id} reserved by {holder}")
+                raise ResourceConflict(f"compressor {comp_id} reserved by {holder}")
             del self._reservations[comp_id]
 
     def reserved_by(self, comp_id: str) -> str:
@@ -193,5 +197,5 @@ class Bank:
     def _require(self, comp_id: str) -> Compressor:
         compressor = self._compressors.get(comp_id)
         if compressor is None:
-            raise ValueError(f"compressor {comp_id} not found")
+            raise ResourceNotFound(f"compressor {comp_id} not found")
         return compressor

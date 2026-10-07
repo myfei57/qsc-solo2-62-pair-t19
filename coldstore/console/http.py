@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import parse_qs
+
+from .errors import FieldInvalid
 
 if TYPE_CHECKING:  # pragma: no cover - imported only for type checkers
     from .server import Server
@@ -15,17 +18,24 @@ STATUS_TEXT = {
     400: "Bad Request",
     404: "Not Found",
     405: "Method Not Allowed",
+    409: "Conflict",
     500: "Internal Server Error",
+    503: "Service Unavailable",
 }
 
 
-class RequestError(Exception):
-    """Raised by a handler to finish the request with a specific status."""
+class RequestError(FieldInvalid):
+    """Legacy exception kept for the compatibility window.
 
-    def __init__(self, status: int, message: str) -> None:
+    Older code raised ``RequestError(status, message)`` directly. It is now a
+    :class:`FieldInvalid` subclass so the central error pipeline renders and
+    audits it exactly like every other field error; the ``status`` attribute
+    is preserved for callers that still reference it.
+    """
+
+    def __init__(self, status: int = 400, message: str = "request is invalid") -> None:
         super().__init__(message)
         self.status = status
-        self.message = message
 
 
 @dataclass(frozen=True)
@@ -35,6 +45,7 @@ class Response:
     status: int
     body: bytes
     content_type: str
+    extra_headers: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
     def wsgi(self) -> tuple[str, list[tuple[str, str]]]:
         reason = STATUS_TEXT.get(self.status, "Unknown")
@@ -42,6 +53,7 @@ class Response:
             ("Content-Type", self.content_type),
             ("Content-Length", str(len(self.body))),
         ]
+        headers.extend(self.extra_headers)
         return f"{self.status} {reason}", headers
 
 
@@ -59,6 +71,8 @@ def csv_response(text: str, status: int = 200) -> Response:
 
 
 def error_response(status: int, message: str) -> Response:
+    """Legacy error body used during the compatibility window."""
+
     return json_response({"error": message}, status=status)
 
 
@@ -94,6 +108,8 @@ class Request:
     path: str
     query: dict[str, list[str]]
     payload: dict[str, object]
+    request_id: str = ""
+    headers: dict[str, str] = field(default_factory=dict)
 
     def float_field(self, name: str, default: float = 0.0) -> float:
         return _to_float(name, self.payload.get(name, default))
@@ -108,6 +124,28 @@ class Request:
         if isinstance(value, str):
             return value
         return str(value)
+
+    def wants_legacy_errors(self) -> bool:
+        """Old clients opt into the legacy error envelope explicitly.
+
+        During the compatibility window the *server default* can also be
+        legacy; see :class:`~coldstore.console.server.Server`.
+        """
+
+        if self.query.get("error_format", [""])[0] == "legacy":
+            return True
+        if self.query.get("error_format", [""])[0] == "v2":
+            return False
+        header = self.headers.get("x-error-format", "")
+        if header == "legacy":
+            return True
+        return False
+
+    def wants_v2_errors(self) -> bool:
+        if self.query.get("error_format", [""])[0] == "v2":
+            return True
+        return self.headers.get("x-error-format", "") == "v2"
+
 
 Handler = Callable[["Server", Request], Response]
 
@@ -131,6 +169,18 @@ class Router:
         return sorted({route_path for _, route_path in self._routes})
 
 
+def _normalise_headers(environ: dict[str, object]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for key, value in environ.items():
+        if key.startswith("HTTP_") and isinstance(value, str):
+            headers[key[5:].lower().replace("_", "-")] = value
+    for key in ("CONTENT_TYPE", "CONTENT_LENGTH"):
+        value = environ.get(key)
+        if isinstance(value, str):
+            headers[key.lower().replace("_", "-")] = value
+    return headers
+
+
 def build_request(environ: dict[str, object]) -> Request:
     """Turn a WSGI environ into a parsed :class:`Request`."""
 
@@ -152,4 +202,12 @@ def build_request(environ: dict[str, object]) -> Request:
         if not isinstance(decoded, dict):
             raise RequestError(400, "JSON body must be an object")
         payload = decoded
-    return Request(method=method, path=path, query=query, payload=payload)
+    inbound_id = str(environ.get("HTTP_X_REQUEST_ID", "") or "") or uuid.uuid4().hex
+    return Request(
+        method=method,
+        path=path,
+        query=query,
+        payload=payload,
+        request_id=inbound_id,
+        headers=_normalise_headers(environ),
+    )

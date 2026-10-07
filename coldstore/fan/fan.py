@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import threading
 
+from coldstore.errors import IllegalState, ResourceConflict, ResourceNotFound
+
 from .report import FanState, FanView
 
 PRIMARY = "primary"
@@ -42,6 +44,8 @@ class FanSet:
 
     def add_fan(self, fan_id: str, role: str = STANDBY) -> FanUnit:
         with self._lock:
+            if fan_id in self._fans:
+                raise ResourceConflict(f"fan {fan_id} already exists")
             unit = FanUnit(fan_id=fan_id, role=role)
             self._fans[fan_id] = unit
             return unit
@@ -65,7 +69,7 @@ class FanSet:
         with self._lock:
             unit = self._require(fan_id)
             if unit.faulted:
-                raise ValueError(f"fan {fan_id} is faulted")
+                raise IllegalState(f"fan {fan_id} is faulted")
             unit.running = True
 
     def stop(self, fan_id: str) -> None:
@@ -91,7 +95,7 @@ class FanSet:
         with self._lock:
             unit = self._require(fan_id)
             if unit.faulted:
-                raise ValueError(f"fan {fan_id} is faulted")
+                raise IllegalState(f"fan {fan_id} is faulted")
             for candidate in self._fans.values():
                 candidate.role = STANDBY
             unit.role = PRIMARY
@@ -155,5 +159,5 @@ class FanSet:
     def _require(self, fan_id: str) -> FanUnit:
         unit = self._fans.get(fan_id)
         if unit is None:
-            raise ValueError(f"fan {fan_id} not found")
+            raise ResourceNotFound(f"fan {fan_id} not found")
         return unit

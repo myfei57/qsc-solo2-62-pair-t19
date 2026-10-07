@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from coldstore.ammonia import validate_ppm, validate_threshold
 from coldstore.comp import validate_stage
 from coldstore.evap import validate_baseline
-from coldstore.fan import PRIMARY, STANDBY
+from coldstore.fan import STANDBY
 from coldstore.load import validate_baseline as validate_load_baseline
 from coldstore.ns import Stage, control_line
 from coldstore.quota import Quota, check_quota, validate_amount
@@ -23,7 +23,9 @@ from . import describe as describe_module
 from . import simulate as simulate_module
 from . import snapshot as snapshot_module
 from . import telemetry as telemetry_module
+from . import contracts as contract_module
 from .cycle import run_cycle
+from .errors import FieldInvalid
 from .http import Request, Response, csv_response, json_response, text_response
 from .report import text_report
 from .routes import route_table
@@ -40,8 +42,10 @@ def _fan_set(server: "Server", request: Request):
     group = request.str_field("group", "cold")
     if group == "evap":
         return server.runtime.evap_fans
+    # The registered contract limits the enum to cold|evap; this guard only
+    # covers direct dispatchers that bypass the gateway validator.
     if group != "cold":
-        raise ValueError("group must be cold or evap")
+        raise FieldInvalid.one("group", "ENUM", "field group must be cold or evap")
     return server.runtime.cold_fans
 
 
@@ -88,10 +92,14 @@ def pipeline(server: "Server", request: Request) -> Response:
 
 
 def catalog(server: "Server", request: Request) -> Response:
+    contracts = {
+        f"{c.method} {c.path}": c.as_dict() for c in contract_module.all_contracts()
+    }
     return json_response(
         {
             "routes": [route.as_dict() for route in route_table()],
             "paths": server.router.paths(),
+            "contracts": contracts,
         }
     )
 
@@ -266,8 +274,6 @@ def temp_reset(server: "Server", request: Request) -> Response:
 
 def comp_add(server: "Server", request: Request) -> Response:
     stages = request.int_field("stages", 1)
-    if stages <= 0:
-        raise ValueError("stages must be positive")
     compressor = server.runtime.compressors.add_compressor(request.str_field("id"), stages)
     return json_response({"id": compressor.id, "stages": compressor.stages})
 
@@ -387,8 +393,6 @@ def valve_stop(server: "Server", request: Request) -> Response:
 
 def fan_add(server: "Server", request: Request) -> Response:
     role = request.str_field("role", STANDBY)
-    if role not in (PRIMARY, STANDBY):
-        raise ValueError("role must be primary or standby")
     unit = _fan_set(server, request).add_fan(request.str_field("id"), role)
     return json_response({"id": unit.id, "role": unit.role})
 

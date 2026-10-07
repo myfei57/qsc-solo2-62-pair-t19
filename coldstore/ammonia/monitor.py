@@ -7,6 +7,8 @@ Crossing the threshold latches a trip that only an explicit reset clears.
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from coldstore.store.epoch import load_float, save_float
 from coldstore.store.store import Store
 
@@ -53,7 +55,7 @@ class Monitor:
 
     def calibrate(self, factor: float) -> float:
         if factor <= 0:
-            raise ValueError("calibration factor must be positive")
+            raise FieldMalformed("calibration factor must be positive")
         save_float(self._store, CALIBRATION_KEY, factor)
         return factor
 

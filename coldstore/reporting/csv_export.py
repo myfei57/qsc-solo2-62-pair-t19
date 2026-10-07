@@ -28,11 +28,28 @@ def to_csv(columns: Sequence[str], rows: Sequence[Sequence[object]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def audit_export(auditor: Auditor) -> tuple[list[str], list[list[str]]]:
-    """Columns and rows for the runtime audit trail."""
+def audit_export(auditor: Auditor) -> tuple[list[str], list[list[object]]]:
+    """Columns and rows for the runtime audit trail.
 
-    columns = ["time", "kind", "detail", "id"]
-    rows = [[entry.time, entry.kind, entry.detail, entry.id] for entry in auditor.entries()]
+    Reads the same entries the console audit endpoints serve. Legacy entries
+    leave the governance columns empty; structured contract/validation/error
+    entries carry their registered route, error code and status alongside.
+    """
+
+    columns = ["time", "kind", "detail", "id", "route", "code", "status"]
+    rows: list[list[object]] = []
+    for entry in auditor.entries():
+        rows.append(
+            [
+                entry.time,
+                entry.kind,
+                entry.detail,
+                entry.id,
+                entry.route,
+                entry.result.get("code", ""),
+                entry.result.get("status", ""),
+            ]
+        )
     return columns, rows
 
 

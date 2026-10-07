@@ -585,10 +585,16 @@ class ReportingCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             auditor = Auditor(Store.open(f"{tmp}/state.json"))
             auditor.record("comp", "2.0000")
+            auditor.record_error("POST /comp/start", 404, "NOT_FOUND", message="ghost")
             columns, rows = audit_export(auditor)
-            self.assertEqual(columns, ["time", "kind", "detail", "id"])
+            # Console and CSV delivery share the one auditor; governance
+            # columns are appended after the legacy four.
+            self.assertEqual(columns, ["time", "kind", "detail", "id", "route", "code", "status"])
             self.assertEqual(rows[0][1], "comp")
             self.assertEqual(rows[0][2], "2.0000")
+            self.assertEqual(rows[1][4], "POST /comp/start")
+            self.assertEqual(rows[1][5], "NOT_FOUND")
+            self.assertEqual(rows[1][6], 404)
 
 
 if __name__ == "__main__":

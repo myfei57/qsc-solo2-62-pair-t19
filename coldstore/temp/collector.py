@@ -8,6 +8,8 @@ are damaged.
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 import json
 import time
 
@@ -39,9 +41,9 @@ class Collector:
 
     def set_window(self, value: float) -> float:
         if value <= 0:
-            raise ValueError("window must be positive")
+            raise FieldMalformed("window must be positive")
         if value > MAX_WINDOW:
-            raise ValueError("window exceeds the supported range")
+            raise FieldMalformed("window exceeds the supported range")
         save_float(self._store, WINDOW_KEY, value)
         return value
 

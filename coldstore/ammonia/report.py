@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from coldstore.errors import FieldMalformed
+
 from dataclasses import dataclass
 
 
@@ -47,15 +49,15 @@ def validate_ppm(value: float) -> None:
     """Reject readings outside the supported sensor range."""
 
     if value < 0:
-        raise ValueError("ppm must be non-negative")
+        raise FieldMalformed("ppm must be non-negative")
     if value > 1_000_000:
-        raise ValueError("ppm exceeds the supported range")
+        raise FieldMalformed("ppm exceeds the supported range")
 
 
 def validate_threshold(value: float) -> None:
     """Reject thresholds outside the supported range."""
 
     if value <= 0:
-        raise ValueError("threshold must be positive")
+        raise FieldMalformed("threshold must be positive")
     if value > 1_000_000:
-        raise ValueError("threshold exceeds the supported range")
+        raise FieldMalformed("threshold exceeds the supported range")
