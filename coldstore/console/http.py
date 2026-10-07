@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import parse_qs
+
+from coldstore.errors import FieldError
 
 if TYPE_CHECKING:  # pragma: no cover - imported only for type checkers
     from .server import Server
@@ -15,17 +17,10 @@ STATUS_TEXT = {
     400: "Bad Request",
     404: "Not Found",
     405: "Method Not Allowed",
+    409: "Conflict",
     500: "Internal Server Error",
+    503: "Service Unavailable",
 }
-
-
-class RequestError(Exception):
-    """Raised by a handler to finish the request with a specific status."""
-
-    def __init__(self, status: int, message: str) -> None:
-        super().__init__(message)
-        self.status = status
-        self.message = message
 
 
 @dataclass(frozen=True)
@@ -35,19 +30,30 @@ class Response:
     status: int
     body: bytes
     content_type: str
+    extra_headers: tuple[tuple[str, str], ...] = ()
 
     def wsgi(self) -> tuple[str, list[tuple[str, str]]]:
         reason = STATUS_TEXT.get(self.status, "Unknown")
         headers = [
             ("Content-Type", self.content_type),
             ("Content-Length", str(len(self.body))),
+            *self.extra_headers,
         ]
         return f"{self.status} {reason}", headers
 
 
-def json_response(payload: object, status: int = 200) -> Response:
+def json_response(
+    payload: object,
+    status: int = 200,
+    extra_headers: tuple[tuple[str, str], ...] = (),
+) -> Response:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    return Response(status=status, body=body, content_type="application/json; charset=utf-8")
+    return Response(
+        status=status,
+        body=body,
+        content_type="application/json; charset=utf-8",
+        extra_headers=extra_headers,
+    )
 
 
 def text_response(text: str, status: int = 200) -> Response:
@@ -58,22 +64,18 @@ def csv_response(text: str, status: int = 200) -> Response:
     return Response(status=status, body=text.encode("utf-8"), content_type="text/csv; charset=utf-8")
 
 
-def error_response(status: int, message: str) -> Response:
-    return json_response({"error": message}, status=status)
-
-
 def _to_float(name: str, value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-        raise RequestError(400, f"field {name} must be a number")
+        raise FieldError(f"field {name} must be a number", field=name)
     try:
         return float(value)
     except ValueError as exc:
-        raise RequestError(400, f"field {name} must be a number") from exc
+        raise FieldError(f"field {name} must be a number", field=name) from exc
 
 
 def _to_int(name: str, value: object) -> int:
     if isinstance(value, bool):
-        raise RequestError(400, f"field {name} must be an integer")
+        raise FieldError(f"field {name} must be an integer", field=name)
     if isinstance(value, int):
         return value
     if isinstance(value, float) and value.is_integer():
@@ -82,8 +84,8 @@ def _to_int(name: str, value: object) -> int:
         try:
             return int(value)
         except ValueError as exc:
-            raise RequestError(400, f"field {name} must be an integer") from exc
-    raise RequestError(400, f"field {name} must be an integer")
+            raise FieldError(f"field {name} must be an integer", field=name) from exc
+    raise FieldError(f"field {name} must be an integer", field=name)
 
 
 @dataclass(frozen=True)
@@ -94,6 +96,7 @@ class Request:
     path: str
     query: dict[str, list[str]]
     payload: dict[str, object]
+    headers: dict[str, str] = field(default_factory=dict)
 
     def float_field(self, name: str, default: float = 0.0) -> float:
         return _to_float(name, self.payload.get(name, default))
@@ -131,12 +134,24 @@ class Router:
         return sorted({route_path for _, route_path in self._routes})
 
 
+def _environ_headers(environ: dict[str, object]) -> dict[str, str]:
+    """Normalise WSGI HTTP_* variables into a lower-case header mapping."""
+
+    headers: dict[str, str] = {}
+    for key, value in environ.items():
+        if key.startswith("HTTP_"):
+            name = key[len("HTTP_") :].replace("_", "-").lower()
+            headers[name] = str(value)
+    return headers
+
+
 def build_request(environ: dict[str, object]) -> Request:
     """Turn a WSGI environ into a parsed :class:`Request`."""
 
     method = str(environ.get("REQUEST_METHOD", "GET")).upper()
     path = str(environ.get("PATH_INFO", "/") or "/")
     query = parse_qs(str(environ.get("QUERY_STRING", "")))
+    headers = _environ_headers(environ)
     try:
         length = int(environ.get("CONTENT_LENGTH") or 0)
     except (TypeError, ValueError):
@@ -148,8 +163,8 @@ def build_request(environ: dict[str, object]) -> Request:
         try:
             decoded = json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError) as exc:
-            raise RequestError(400, f"invalid JSON body: {exc}") from exc
+            raise FieldError(f"invalid JSON body: {exc}", field="<body>") from exc
         if not isinstance(decoded, dict):
-            raise RequestError(400, "JSON body must be an object")
+            raise FieldError("JSON body must be an object", field="<body>")
         payload = decoded
-    return Request(method=method, path=path, query=query, payload=payload)
+    return Request(method=method, path=path, query=query, payload=payload, headers=headers)

@@ -16,6 +16,7 @@ from coldstore.store.store import Store
 
 from .report import RateVerdict, TempState
 from .sensor import Reading
+from coldstore.errors import FieldError
 
 READINGS_KEY = "temp:readings"
 WINDOW_KEY = "temp:rate-window"
@@ -39,9 +40,9 @@ class Collector:
 
     def set_window(self, value: float) -> float:
         if value <= 0:
-            raise ValueError("window must be positive")
+            raise FieldError("window must be positive", field="window")
         if value > MAX_WINDOW:
-            raise ValueError("window exceeds the supported range")
+            raise FieldError("window exceeds the supported range", field="window")
         save_float(self._store, WINDOW_KEY, value)
         return value
 

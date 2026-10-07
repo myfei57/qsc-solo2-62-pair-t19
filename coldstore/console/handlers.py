@@ -11,7 +11,8 @@ from coldstore.fan import PRIMARY, STANDBY
 from coldstore.load import validate_baseline as validate_load_baseline
 from coldstore.ns import Stage, control_line
 from coldstore.quota import Quota, check_quota, validate_amount
-from coldstore.reporting import audit_export, telemetry_export, to_csv
+from coldstore.errors import FieldError, error_catalog
+from coldstore.reporting import audit_export, error_catalog_export, telemetry_export, to_csv
 from coldstore.room import validate_zone
 from coldstore.scheduler import validate_threshold as validate_schedule_threshold
 from coldstore.store import export_state
@@ -41,7 +42,7 @@ def _fan_set(server: "Server", request: Request):
     if group == "evap":
         return server.runtime.evap_fans
     if group != "cold":
-        raise ValueError("group must be cold or evap")
+        raise FieldError("group must be cold or evap", field="group")
     return server.runtime.cold_fans
 
 
@@ -92,6 +93,7 @@ def catalog(server: "Server", request: Request) -> Response:
         {
             "routes": [route.as_dict() for route in route_table()],
             "paths": server.router.paths(),
+            "errors": error_catalog(),
         }
     )
 
@@ -267,7 +269,7 @@ def temp_reset(server: "Server", request: Request) -> Response:
 def comp_add(server: "Server", request: Request) -> Response:
     stages = request.int_field("stages", 1)
     if stages <= 0:
-        raise ValueError("stages must be positive")
+        raise FieldError("stages must be positive", field="stages")
     compressor = server.runtime.compressors.add_compressor(request.str_field("id"), stages)
     return json_response({"id": compressor.id, "stages": compressor.stages})
 
@@ -388,7 +390,7 @@ def valve_stop(server: "Server", request: Request) -> Response:
 def fan_add(server: "Server", request: Request) -> Response:
     role = request.str_field("role", STANDBY)
     if role not in (PRIMARY, STANDBY):
-        raise ValueError("role must be primary or standby")
+        raise FieldError("role must be primary or standby", field="role")
     unit = _fan_set(server, request).add_fan(request.str_field("id"), role)
     return json_response({"id": unit.id, "role": unit.role})
 
@@ -672,6 +674,11 @@ def export_audit(server: "Server", request: Request) -> Response:
 
 def export_telemetry(server: "Server", request: Request) -> Response:
     columns, rows = telemetry_export(telemetry_module.collect(server.runtime))
+    return csv_response(to_csv(columns, rows))
+
+
+def export_errors(server: "Server", request: Request) -> Response:
+    columns, rows = error_catalog_export()
     return csv_response(to_csv(columns, rows))
 
 

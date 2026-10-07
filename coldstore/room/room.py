@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 
 from .report import RoomState, RoomView
+from coldstore.errors import NotFoundError
 
 
 class Room:
@@ -71,7 +72,7 @@ class RoomRegistry:
     def remove_room(self, room_id: str) -> None:
         with self._lock:
             if room_id not in self._rooms:
-                raise ValueError(f"cold room {room_id} not found")
+                raise NotFoundError(f"cold room {room_id} not found")
             del self._rooms[room_id]
 
     def set_temp(self, room_id: str, temp: float) -> None:
@@ -185,5 +186,5 @@ class RoomRegistry:
     def _require(self, room_id: str) -> Room:
         room = self._rooms.get(room_id)
         if room is None:
-            raise ValueError(f"cold room {room_id} not found")
+            raise NotFoundError(f"cold room {room_id} not found")
         return room

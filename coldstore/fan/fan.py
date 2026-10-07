@@ -10,6 +10,7 @@ from __future__ import annotations
 import threading
 
 from .report import FanState, FanView
+from coldstore.errors import NotFoundError, StateError
 
 PRIMARY = "primary"
 STANDBY = "standby"
@@ -65,7 +66,7 @@ class FanSet:
         with self._lock:
             unit = self._require(fan_id)
             if unit.faulted:
-                raise ValueError(f"fan {fan_id} is faulted")
+                raise StateError(f"fan {fan_id} is faulted")
             unit.running = True
 
     def stop(self, fan_id: str) -> None:
@@ -91,7 +92,7 @@ class FanSet:
         with self._lock:
             unit = self._require(fan_id)
             if unit.faulted:
-                raise ValueError(f"fan {fan_id} is faulted")
+                raise StateError(f"fan {fan_id} is faulted")
             for candidate in self._fans.values():
                 candidate.role = STANDBY
             unit.role = PRIMARY
@@ -155,5 +156,5 @@ class FanSet:
     def _require(self, fan_id: str) -> FanUnit:
         unit = self._fans.get(fan_id)
         if unit is None:
-            raise ValueError(f"fan {fan_id} not found")
+            raise NotFoundError(f"fan {fan_id} not found")
         return unit

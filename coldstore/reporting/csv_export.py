@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+from coldstore.errors import error_catalog
+
 if TYPE_CHECKING:  # pragma: no cover - imported only for type checkers
     from coldstore.audit import Auditor
     from coldstore.console.telemetry import Telemetry
@@ -40,3 +42,18 @@ def telemetry_export(telemetry: Telemetry) -> tuple[list[str], list[list[object]
     """Columns and rows for the telemetry counters."""
 
     return ["metric", "value"], [[key, value] for key, value in telemetry.as_dict().items()]
+
+
+def error_catalog_export() -> tuple[list[str], list[list[object]]]:
+    """Columns and rows for the registered error codes.
+
+    Reads the same registry the console renders envelopes from, so the
+    distributed report and the live API can never disagree on a code.
+    """
+
+    columns = ["code", "status", "category", "retryable", "summary"]
+    rows = [
+        [entry["code"], entry["status"], entry["category"], entry["retryable"], entry["summary"]]
+        for entry in error_catalog()
+    ]
+    return columns, rows

@@ -14,6 +14,7 @@ from coldstore.store.store import Store
 
 from .report import DefrostState
 from .schedule import now_unix
+from coldstore.errors import NotFoundError
 
 COMMAND_KEY = "defrost:commands"
 WARMUP_KEY_PREFIX = "defrost:warmup:"
@@ -75,7 +76,7 @@ class Controller:
 
         mapping = self._rooms.mapping()
         if zone not in mapping:
-            raise ValueError(f"no cold room for zone {zone}")
+            raise NotFoundError(f"no cold room for zone {zone}")
         return mapping[zone]
 
     def defrosting(self) -> list[str]:

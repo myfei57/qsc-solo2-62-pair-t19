@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from coldstore.errors import FieldError
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,6 @@ def validate_baseline(value: float) -> None:
     """Reject baselines outside the supported range."""
 
     if value < -100:
-        raise ValueError("baseline is below the supported range")
+        raise FieldError("baseline is below the supported range", field="baseline")
     if value > 100:
-        raise ValueError("baseline exceeds the supported range")
+        raise FieldError("baseline exceeds the supported range", field="baseline")

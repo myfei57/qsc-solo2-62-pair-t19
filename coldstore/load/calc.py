@@ -12,6 +12,7 @@ from coldstore.store.epoch import load_float, save_float
 from coldstore.store.store import Store
 
 from .report import LoadEntry, LoadState
+from coldstore.errors import FieldError
 
 BASELINE_KEY = "load:baseline"
 COEFFICIENT_KEY = "load:coefficient"
@@ -47,7 +48,7 @@ class LoadCalculator:
 
     def set_coefficient(self, value: float) -> float:
         if value <= 0:
-            raise ValueError("coefficient must be positive")
+            raise FieldError("coefficient must be positive", field="coefficient")
         save_float(self._store, COEFFICIENT_KEY, value)
         return value
 

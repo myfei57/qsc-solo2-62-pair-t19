@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from coldstore.errors import FieldError
 
 OPEN = "open"
 CLOSED = "closed"
@@ -22,4 +23,4 @@ def validate_valve(value: str) -> None:
     """Reject valve positions the console cannot represent."""
 
     if value not in (OPEN, CLOSED):
-        raise ValueError("valve position must be open or closed")
+        raise FieldError("valve position must be open or closed", field="position")

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from coldstore.errors import FieldError
+
 
 @dataclass(frozen=True)
 class RateVerdict:
@@ -49,6 +51,6 @@ def validate_temp(value: float) -> None:
     """Reject readings outside the supported probe range."""
 
     if value < -100:
-        raise ValueError("temp is below the supported range")
+        raise FieldError("temp is below the supported range", field="temp")
     if value > 100:
-        raise ValueError("temp exceeds the supported range")
+        raise FieldError("temp exceeds the supported range", field="temp")

@@ -1,6 +1,6 @@
 """HTTP control console."""
 
-from .http import Request, RequestError, Response, Router
+from .http import Request, Response, Router
 from .server import Server, create_application
 
-__all__ = ["Request", "RequestError", "Response", "Router", "Server", "create_application"]
+__all__ = ["Request", "Response", "Router", "Server", "create_application"]

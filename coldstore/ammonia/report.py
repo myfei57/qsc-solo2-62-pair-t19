@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from coldstore.errors import FieldError
 
 
 @dataclass(frozen=True)
@@ -47,15 +48,15 @@ def validate_ppm(value: float) -> None:
     """Reject readings outside the supported sensor range."""
 
     if value < 0:
-        raise ValueError("ppm must be non-negative")
+        raise FieldError("ppm must be non-negative", field="ppm")
     if value > 1_000_000:
-        raise ValueError("ppm exceeds the supported range")
+        raise FieldError("ppm exceeds the supported range", field="ppm")
 
 
 def validate_threshold(value: float) -> None:
     """Reject thresholds outside the supported range."""
 
     if value <= 0:
-        raise ValueError("threshold must be positive")
+        raise FieldError("threshold must be positive", field="threshold")
     if value > 1_000_000:
-        raise ValueError("threshold exceeds the supported range")
+        raise FieldError("threshold exceeds the supported range", field="threshold")

@@ -351,8 +351,8 @@ class ConsoleCase(unittest.TestCase):
 
         self.call("POST", "/cycle", {"room_id": "", "comp_id": "", "temp": -5.0, "ppm": 1.0, "amount": 2.0})
         status, body = self.call("GET", "/audit/summary")
-        self.assertEqual(body["count"], 1)
-        self.assertEqual(body["by_kind"], {"cycle": 1})
+        self.assertEqual(body["count"], 2)
+        self.assertEqual(body["by_kind"], {"contract": 1, "cycle": 1})
         self.assertEqual(body["last"]["kind"], "cycle")
         status, body = self.call("POST", "/audit/filter", {"kind": "cycle"})
         self.assertEqual(len(body["entries"]), 1)
@@ -386,7 +386,7 @@ class ConsoleCase(unittest.TestCase):
         self.assertFalse(body["tripped"])
         self.assertEqual(body["quota"], 2.0)
         self.assertEqual(body["cooling_load"], 19.5)
-        self.assertEqual(body["audit_count"], 1)
+        self.assertEqual(body["audit_count"], 2)
 
         status, body = self.call(
             "POST",
@@ -433,7 +433,7 @@ class ConsoleCase(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("must be a number", body["error"])
         status, body = self.call("POST", "/room/remove", {"id": "ghost"})
-        self.assertEqual(status, 400)
+        self.assertEqual(status, 404)
         self.assertIn("not found", body["error"])
         status, body = self.call("POST", "/ops/reset-store", {})
         self.assertEqual(status, 200)

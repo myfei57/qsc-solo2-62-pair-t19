@@ -12,6 +12,7 @@ from coldstore.comp import Bank
 from coldstore.store.store import Store
 
 from .report import CLOSED, OPEN, SupplyState
+from coldstore.errors import StateError
 
 VALVE_KEY_PREFIX = "valve:supply:"
 
@@ -51,7 +52,7 @@ class SupplyValve:
 
         self.open_valve(comp_id)
         if not self.is_open(comp_id):
-            raise ValueError(f"supply valve for {comp_id} did not open")
+            raise StateError(f"supply valve for {comp_id} did not open")
         bank.start(comp_id)
         return comp_id
 

@@ -11,6 +11,7 @@ from coldstore.store.epoch import load_float, save_float
 from coldstore.store.store import Store
 
 from .report import AmmoniaState, AmmoniaVerdict
+from coldstore.errors import FieldError
 
 THRESHOLD_KEY = "ammonia:threshold"
 CALIBRATION_KEY = "ammonia:calibration"
@@ -53,7 +54,7 @@ class Monitor:
 
     def calibrate(self, factor: float) -> float:
         if factor <= 0:
-            raise ValueError("calibration factor must be positive")
+            raise FieldError("calibration factor must be positive", field="factor")
         save_float(self._store, CALIBRATION_KEY, factor)
         return factor
 

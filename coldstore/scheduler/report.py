@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from coldstore.errors import FieldError
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,6 @@ def validate_threshold(value: float) -> None:
     """Reject thresholds outside the supported temperature range."""
 
     if value < -100:
-        raise ValueError("threshold is below the supported range")
+        raise FieldError("threshold is below the supported range", field="threshold")
     if value > 100:
-        raise ValueError("threshold exceeds the supported range")
+        raise FieldError("threshold exceeds the supported range", field="threshold")

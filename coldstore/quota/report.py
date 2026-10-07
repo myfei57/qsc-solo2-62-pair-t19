@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from coldstore.errors import FieldError
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,6 @@ def validate_amount(amount: float) -> None:
     """Reject amounts outside the supported range."""
 
     if amount < 0:
-        raise ValueError("amount must be non-negative")
+        raise FieldError("amount must be non-negative", field="amount")
     if amount > 1_000_000:
-        raise ValueError("amount exceeds the supported range")
+        raise FieldError("amount exceeds the supported range", field="amount")
